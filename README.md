@@ -6,7 +6,8 @@
 
 # 电子课程表
 
-![view](image/README/view.png)
+![view](<img width="690" height="148" alt="屏幕截图 2026-08-30 213533" src="https://github.com/user-attachments/assets/2abd2123-805d-4bf5-b89b-32b5e4b7e93d" />
+)
 
 
 ## 软件介绍
