@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>计时矫正</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #111c2f;
+      --panel-strong: #162540;
+      --border: #283a5d;
+      --text: #eaf3ff;
+      --muted: #a7b8d6;
+      --accent: #72d6ff;
+      --accent-2: #8ef2b1;
+      --danger: #ff7d7d;
+      --shadow: rgba(0, 0, 0, 0.25);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      font-family: "Microsoft YaHei", "Segoe UI", sans-serif;
+      background: linear-gradient(180deg, #0b1220 0%, #0f172a 100%);
+      color: var(--text);
+    }
+
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+    }
+
+    .dialog {
+      width: min(100%, 440px);
+      background: rgba(17, 28, 47, 0.96);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: 0 12px 28px var(--shadow);
+      padding: 18px 18px 16px;
+    }
+
+    .title {
+      margin: 0 0 8px;
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      color: var(--text);
+    }
+
+    .subtitle {
+      margin: 0 0 16px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 18px;
+    }
+
+    .field label {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    input {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: rgba(9, 16, 28, 0.88);
+      color: var(--text);
+      font-size: 14px;
+      outline: none;
+    }
+
+    input:focus {
+      border-color: rgba(114, 214, 255, 0.6);
+      box-shadow: 0 0 0 2px rgba(114, 214, 255, 0.15);
+    }
+
+    .toolbar {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    button {
+      border: 1px solid var(--border);
+      background: var(--panel-strong);
+      color: var(--text);
+      padding: 9px 15px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: transform 0.12s ease, opacity 0.12s ease;
+      box-shadow: 0 3px 10px var(--shadow);
+      font-size: 14px;
+    }
+
+    button:hover { transform: translateY(-1px); }
+    button.primary {
+      background: linear-gradient(180deg, #1f3d7a, #17325e);
+      border-color: rgba(114, 214, 255, 0.35);
+    }
+    button.secondary {
+      background: rgba(18, 32, 53, 0.9);
+    }
+  </style>
+</head>
+<body>
+  <div class="dialog">
+    <h1 class="title">计时矫正</h1>
+    <p class="subtitle">请设置课表计时与系统时间的偏移秒数：</p>
+
+    <div class="field">
+      <label for="offsetInput">偏移秒数</label>
+      <input id="offsetInput" type="number" step="1" value="0" />
+    </div>
+
+    <div class="toolbar">
+      <button id="cancelBtn" class="secondary" type="button">取消</button>
+      <button id="confirmBtn" class="primary" type="button">确认</button>
+    </div>
+  </div>
+
+  <script>
+    const { ipcRenderer } = require('electron');
+    const params = new URLSearchParams(window.location.search);
+    const offsetInput = document.getElementById('offsetInput');
+
+    const defaultValue = params.get('offset') || '0';
+    offsetInput.value = defaultValue;
+    offsetInput.focus();
+    offsetInput.select();
+
+    document.getElementById('confirmBtn').addEventListener('click', () => {
+      const value = Number(offsetInput.value || 0);
+      ipcRenderer.send('time-offset-result', value);
+      window.close();
+    });
+
+    document.getElementById('cancelBtn').addEventListener('click', () => {
+      ipcRenderer.send('time-offset-result', null);
+      window.close();
+    });
+
+    offsetInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        document.getElementById('confirmBtn').click();
+      }
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        document.getElementById('cancelBtn').click();
+      }
+    });
+  </script>
+</body>
+</html>

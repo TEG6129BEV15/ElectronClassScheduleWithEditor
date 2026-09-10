@@ -1,0 +1,1531 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>课表配置编辑器</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #111c2f;
+      --panel-strong: #162540;
+      --border: #283a5d;
+      --text: #eaf3ff;
+      --muted: #a7b8d6;
+      --accent: #72d6ff;
+      --accent-2: #8ef2b1;
+      --danger: #ff7d7d;
+      --shadow: rgba(0, 0, 0, 0.25);
+    }
+
+    * { box-sizing: border-box; }
+
+    .window-titlebar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      height: 38px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-left: 14px;
+      background: #111c2f;
+      border-bottom: 1px solid var(--border);
+      -webkit-app-region: drag;
+      user-select: none;
+    }
+
+    .window-title {
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .window-controls {
+      height: 100%;
+      display: flex;
+      -webkit-app-region: no-drag;
+    }
+
+    .window-control {
+      width: 46px;
+      height: 100%;
+      padding: 0;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      color: var(--text);
+      box-shadow: none;
+      font-size: 16px;
+    }
+
+    .window-control:hover { background: rgba(114, 214, 255, 0.16); transform: none; }
+    .window-control.close:hover { background: #c54252; }
+
+    body {
+      margin: 0;
+      font-family: "Microsoft YaHei", "Segoe UI", sans-serif;
+      background: linear-gradient(180deg, #0b1220 0%, #0f172a 100%);
+      color: var(--text);
+      padding-top: 38px;
+    }
+
+    .app {
+      max-width: 1500px;
+      margin: 0 auto;
+      padding: 20px 18px 32px;
+      position: relative;
+    }
+
+    .toolbar-sticky {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      padding: 8px 0 12px;
+      margin: 0 0 8px;
+      background: linear-gradient(180deg, rgba(11, 18, 32, 0.96), rgba(11, 18, 32, 0.82) 68%, rgba(11, 18, 32, 0));
+      backdrop-filter: blur(8px);
+    }
+
+    .settings-app {
+      display: flex;
+      min-height: calc(100vh - 52px);
+      background: rgba(17, 28, 47, 0.9);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: 0 12px 28px var(--shadow);
+    }
+
+    .nav-sidebar {
+      width: 260px;
+      background: rgba(16, 24, 38, 0.95);
+      border-right: 1px solid var(--border);
+      padding: 18px 14px;
+      flex-shrink: 0;
+    }
+
+    .nav-brand {
+      padding: 10px 12px 18px;
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: 0.5px;
+    }
+
+    .nav-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .nav-item {
+      width: 100%;
+      text-align: left;
+      padding: 12px 14px;
+      border-radius: 10px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--text);
+      font-size: 15px;
+      box-shadow: none;
+    }
+
+    .nav-item.active {
+      background: rgba(114, 214, 255, 0.12);
+      border-color: rgba(114, 214, 255, 0.35);
+      color: var(--accent);
+    }
+
+    .main-content {
+      flex: 1;
+      padding: 20px;
+      overflow: auto;
+    }
+
+    .page {
+      display: none;
+      min-height: 100%;
+    }
+
+    .page.active {
+      display: block;
+    }
+
+    .page-header {
+      margin-bottom: 16px;
+    }
+
+    .page-header h2 {
+      margin: 0 0 6px;
+      font-size: 28px;
+    }
+
+    .page-header p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .toolbar {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    button {
+      border: 1px solid var(--border);
+      background: var(--panel-strong);
+      color: var(--text);
+      padding: 8px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: transform 0.12s ease, opacity 0.12s ease;
+      box-shadow: 0 3px 10px var(--shadow);
+    }
+
+    button:hover { transform: translateY(-1px); }
+    button.primary { background: linear-gradient(180deg, #1f3d7a, #17325e); }
+    button.danger { background: linear-gradient(180deg, #712a2a, #4a1a1a); }
+
+    .panel {
+      background: rgba(17, 28, 47, 0.9);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: 0 8px 18px var(--shadow);
+      padding: 16px;
+      margin-bottom: 22px;
+    }
+
+    .panel h3 {
+      margin: 0 0 14px;
+      font-size: 20px;
+    }
+
+    .basic-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .field label {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    input, select, textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: rgba(9, 16, 28, 0.88);
+      color: var(--text);
+      font-size: 14px;
+    }
+
+    input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--accent);
+      margin-top: 6px;
+    }
+
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 46px;
+      margin-top: 22px;
+    }
+
+    .card-grid {
+      display: grid;
+      gap: 20px;
+    }
+
+    .group-card {
+      background: rgba(18, 32, 53, 0.9);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+    }
+
+    .group-card h3 {
+      margin: 0 0 12px;
+      color: var(--accent-2);
+      font-size: 18px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      overflow: hidden;
+      border-radius: 10px;
+    }
+
+    th, td {
+      padding: 10px 8px;
+      border: 1px solid var(--border);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: rgba(30, 46, 71, 0.95);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    tbody tr:nth-child(even) {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .small-btn {
+      padding: 6px 10px;
+      font-size: 12px;
+    }
+
+    .subject-actions, .row-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+    }
+
+    .empty {
+      color: var(--muted);
+      font-size: 14px;
+      margin-top: 8px;
+    }
+
+    .daily-layout {
+      display: flex;
+      gap: 20px;
+      align-items: flex-start;
+      min-height: 520px;
+    }
+
+    .day-nav {
+      width: 180px;
+      background: rgba(13, 22, 35, 0.8);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 10px 8px;
+      flex-shrink: 0;
+    }
+
+    .day-nav-item {
+      width: 100%;
+      text-align: left;
+      padding: 10px 12px;
+      border-radius: 9px;
+      margin-bottom: 8px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--text);
+      box-shadow: none;
+    }
+
+    .day-nav-item.active {
+      border-color: rgba(114, 214, 255, 0.35);
+      background: rgba(114, 214, 255, 0.1);
+      color: var(--accent);
+    }
+
+    .day-nav .small-btn {
+      width: 100%;
+      margin-bottom: 10px;
+    }
+
+    .schedule-map-table select {
+      width: 100%;
+    }
+
+    .day-editor {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .timetable-layout {
+      display: flex;
+      gap: 20px;
+      align-items: flex-start;
+      min-height: 520px;
+    }
+
+    .timetable-nav {
+      width: 180px;
+      background: rgba(13, 22, 35, 0.8);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 10px 8px;
+      flex-shrink: 0;
+    }
+
+    .timetable-nav-item {
+      width: 100%;
+      text-align: left;
+      padding: 10px 12px;
+      border-radius: 9px;
+      margin-bottom: 8px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--text);
+      box-shadow: none;
+    }
+
+    .timetable-nav-item.active {
+      border-color: rgba(114, 214, 255, 0.35);
+      background: rgba(114, 214, 255, 0.1);
+      color: var(--accent);
+    }
+
+    .day-editor-card {
+      display: flex;
+      gap: 22px;
+      align-items: flex-start;
+      justify-content: center;
+      width: 100%;
+    }
+
+    .day-table-panel {
+      flex: 1 1 auto;
+      min-width: 320px;
+      max-width: 760px;
+      width: 100%;
+      background: rgba(18, 32, 53, 0.9);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px;
+    }
+
+    .day-table-panel h3 {
+      margin: 0 0 12px;
+      font-size: 20px;
+      color: var(--accent-2);
+    }
+
+    .slot-rotation-control {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .slot-rotation-control select {
+      width: auto;
+      min-width: 116px;
+    }
+
+    .weekly-inputs {
+      display: grid;
+      grid-template-columns: repeat(var(--rotation-weeks, 1), minmax(0, 1fr));
+      gap: 8px;
+      width: 100%;
+    }
+
+    .weekly-input {
+      min-width: 0;
+    }
+
+    .weekly-input select {
+      width: 100%;
+      min-width: 0;
+    }
+
+    .weekly-input label {
+      display: block;
+      margin-bottom: 5px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .vertical-table th:first-child,
+    .vertical-table td:first-child {
+      width: 130px;
+      min-width: 130px;
+    }
+
+    .vertical-table td:first-child {
+      font-weight: 700;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .property-panel {
+      width: 280px;
+      min-width: 280px;
+      background: rgba(18, 32, 53, 0.9);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px;
+    }
+
+    .property-panel h3 {
+      margin: 0 0 16px;
+      font-size: 19px;
+      color: var(--accent-2);
+    }
+
+    .property-panel .field + .field {
+      margin-top: 12px;
+    }
+
+    .inline-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    @media (max-width: 980px) {
+      .settings-app {
+        flex-direction: column;
+      }
+
+      .nav-sidebar {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .nav-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      }
+
+      .daily-layout {
+        flex-direction: column;
+      }
+
+      .timetable-layout {
+        flex-direction: column;
+      }
+
+      .day-nav {
+        width: 100%;
+      }
+
+      .timetable-nav {
+        width: 100%;
+      }
+
+      .day-editor-card {
+        flex-direction: column;
+      }
+
+      .property-panel {
+        width: 100%;
+        min-width: 0;
+      }
+
+      .day-table-panel {
+        min-width: 0;
+        max-width: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="window-titlebar">
+    <span class="window-title">课表配置编辑器</span>
+    <div class="window-controls">
+      <button class="window-control" data-window-action="minimize" title="最小化">−</button>
+      <button class="window-control" data-window-action="toggle-maximize" title="还原/最大化">□</button>
+      <button class="window-control close" data-window-action="close" title="关闭">×</button>
+    </div>
+  </div>
+  <div class="app">
+    <div class="toolbar-sticky">
+      <button id="reloadBtn" type="button">刷新配置</button>
+      <button id="importBtn" type="button">导入配置</button>
+      <button id="saveBtn" class="primary" type="button">保存到 scheduleConfig.js</button>
+    </div>
+
+    <div class="settings-app">
+      <aside class="nav-sidebar">
+        <div class="nav-brand">配置</div>
+        <nav class="nav-list" id="mainNav">
+          <button class="nav-item active" data-page="subject" type="button">科目名称</button>
+          <button class="nav-item" data-page="timetable" type="button">时间表</button>
+          <button class="nav-item" data-page="daily" type="button">课表</button>
+          <button class="nav-item" data-page="divider" type="button">分割线</button>
+        </nav>
+      </aside>
+
+      <main class="main-content">
+        <div class="page active" id="page-subject">
+          <div class="page-header">
+            <h2>科目名称</h2>
+            <p>设置每个课程简称对应的完整名称。</p>
+          </div>
+          <div class="panel">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 30%;">简称</th>
+                  <th style="width: 50%;">全称</th>
+                  <th style="width: 20%;">操作</th>
+                </tr>
+              </thead>
+              <tbody id="subjectTableBody"></tbody>
+            </table>
+            <div class="subject-actions">
+              <button id="addSubjectBtn" type="button">新增科目</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="page" id="page-timetable">
+          <div class="page-header">
+            <h2>时间表</h2>
+            <p>配置不同日程下的时间段与类型。</p>
+          </div>
+          <div class="toolbar" style="margin-bottom: 12px; justify-content: flex-end;">
+            <button id="addTimetableBtn" type="button">新增时间表</button>
+          </div>
+          <div class="timetable-layout">
+            <aside class="timetable-nav" id="timetableNav"></aside>
+            <div class="day-editor" id="timetableContainer"></div>
+          </div>
+        </div>
+
+        <div class="page" id="page-daily">
+          <div class="page-header">
+            <h2>课表</h2>
+            <p>新建并编辑静态课表，再设置每天需要加载的课表。</p>
+          </div>
+          <div class="panel">
+            <h3>每天加载的课表</h3>
+            <p class="field-help">为每个星期选择需要加载的课表，保存后会写入 daily_schedule。</p>
+            <table class="schedule-map-table">
+              <thead>
+                <tr>
+                  <th style="width: 35%;">星期</th>
+                  <th>需要加载的课表</th>
+                </tr>
+              </thead>
+              <tbody id="dailyScheduleTableBody"></tbody>
+            </table>
+          </div>
+          <div class="daily-layout">
+            <aside class="day-nav" id="dayNav">
+              <button class="small-btn primary" type="button" data-action="add-day-card">新建课表</button>
+            </aside>
+            <div class="day-editor" id="dailyClassContainer"></div>
+          </div>
+        </div>
+
+        <div class="page" id="page-divider">
+          <div class="page-header">
+            <h2>分割线</h2>
+            <p>配置不同时间表中的视觉分隔线位置。</p>
+          </div>
+          <div class="panel">
+            <div id="dividerContainer" class="card-grid"></div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+  </div>
+
+  <script>
+    const { ipcRenderer } = require('electron');
+
+    document.querySelectorAll('[data-window-action]').forEach((button) => {
+      button.addEventListener('click', () => ipcRenderer.send('window-control', button.dataset.windowAction));
+    });
+    document.querySelector('.window-titlebar').addEventListener('dblclick', (event) => {
+      if (event.target.closest('.window-controls')) return;
+      ipcRenderer.send('window-control', 'toggle-maximize');
+    });
+
+    let config = null;
+    let activeTimetableName = null;
+
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function normalizeDateValue(value) {
+      if (!value || value === 'hidden') return '';
+      if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(value)) {
+        const date = new Date(value);
+        if (!Number.isNaN(date.getTime())) {
+          const yyyy = date.getFullYear();
+          const mm = String(date.getMonth() + 1).padStart(2, '0');
+          const dd = String(date.getDate()).padStart(2, '0');
+          return `${yyyy}-${mm}-${dd}`;
+        }
+      }
+      return value;
+    }
+
+    function getCurrentConfig() {
+      return new Promise((resolve, reject) => {
+        ipcRenderer.invoke('read-config-file')
+          .then(resolve)
+          .catch(reject);
+      });
+    }
+
+    function getTimetableSlotCount(timetableName) {
+      const timetable = config && config.timetable ? config.timetable[timetableName] : null;
+      if (!timetable || typeof timetable !== 'object') return 0;
+      return Object.values(timetable).filter((value) => typeof value === 'number').length;
+    }
+
+    function getSubjectEntries() {
+      return config && config.subject_name && typeof config.subject_name === 'object'
+        ? Object.entries(config.subject_name)
+        : [];
+    }
+
+    function renderSubjectOptions(selectedKey) {
+      const options = ['<option value="">请选择课程</option>'];
+      getSubjectEntries().forEach(([key, name]) => {
+        options.push(`<option value="${escapeHtml(key)}" ${key === selectedKey ? 'selected' : ''}>${escapeHtml(name || key)}</option>`);
+      });
+      return options.join('');
+    }
+
+    function renderSubjectTable() {
+      const body = document.getElementById('subjectTableBody');
+      if (!config || !config.subject_name) {
+        body.innerHTML = '<tr><td colspan="3" class="empty">暂无科目配置</td></tr>';
+        return;
+      }
+
+      const entries = Object.entries(config.subject_name);
+      body.innerHTML = '';
+
+      entries.forEach(([key, value]) => {
+        const row = document.createElement('tr');
+        row.className = 'subject-row';
+        row.innerHTML = `
+          <td><input data-field="subject-key" value="${escapeHtml(key)}" /></td>
+          <td><input data-field="subject-value" value="${escapeHtml(value)}" /></td>
+          <td><button class="small-btn danger" type="button" data-action="delete-subject">删除</button></td>
+        `;
+        body.appendChild(row);
+      });
+    }
+
+    async function addTimetableGroup() {
+      const groups = config && config.timetable ? config.timetable : {};
+      const currentNames = Object.keys(groups);
+      let candidate = '新时间表';
+      let index = 1;
+      while (currentNames.includes(candidate)) {
+        candidate = `新时间表${index}`;
+        index += 1;
+      }
+
+      const name = await ipcRenderer.invoke('open-rename-timetable-window', candidate);
+      if (name === null) return;
+
+      const trimmedName = String(name).trim();
+      if (!trimmedName) {
+        alert('时间表名称不能为空');
+        return;
+      }
+
+      if (currentNames.includes(trimmedName)) {
+        alert('时间表名称已存在，请换个名称');
+        return;
+      }
+
+      if (!config.timetable) config.timetable = {};
+      config.timetable[trimmedName] = {};
+      activeTimetableName = trimmedName;
+      renderTimetableNav();
+      renderTimetableTable();
+      requestAnimationFrame(applyTimetableLayout);
+    }
+
+    function renderTimetableNav() {
+      const container = document.getElementById('timetableNav');
+      if (!container) return;
+      container.innerHTML = '';
+      const groupNames = config && config.timetable ? Object.keys(config.timetable) : [];
+      if (!groupNames.length) {
+        container.innerHTML = '<div class="empty">暂无时间表</div>';
+        activeTimetableName = null;
+        return;
+      }
+      if (!groupNames.includes(activeTimetableName)) activeTimetableName = groupNames[0];
+
+      groupNames.forEach((groupName) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = `timetable-nav-item${groupName === activeTimetableName ? ' active' : ''}`;
+        button.dataset.timetableName = groupName;
+        button.textContent = groupName;
+        container.appendChild(button);
+      });
+    }
+
+    function renderTimetableTable() {
+      const container = document.getElementById('timetableContainer');
+      container.innerHTML = '';
+      const groups = config && config.timetable ? config.timetable : {};
+      const groupNames = Object.keys(groups);
+
+      if (!groupNames.length) {
+        container.innerHTML = '<div class="empty">暂无时间表</div>';
+        return;
+      }
+
+      if (!groupNames.includes(activeTimetableName)) activeTimetableName = groupNames[0];
+      const groupName = activeTimetableName;
+      const card = document.createElement('div');
+      card.className = 'group-card';
+      card.dataset.timetableName = groupName;
+      const rows = Object.entries(groups[groupName] || {});
+      card.innerHTML = `
+          <h3>${escapeHtml(groupName)}</h3>
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 38%;">时间段</th>
+                <th style="width: 30%;">值</th>
+                <th style="width: 32%;">操作</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+          <div class="row-actions">
+            <button type="button" data-group-name="${escapeHtml(groupName)}" data-action="add-timetable-row">新增时间段</button>
+            <button type="button" data-group-name="${escapeHtml(groupName)}" data-action="rename-timetable">重命名</button>
+          </div>
+      `;
+
+      const tbody = card.querySelector('tbody');
+      rows.forEach(([range, value]) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><input data-role="timetable-range" value="${escapeHtml(range)}" /></td>
+            <td><input data-role="timetable-value" value="${escapeHtml(value)}" /></td>
+            <td>
+              <div class="inline-actions">
+                <button class="small-btn" type="button" data-action="move-timetable-up">上移</button>
+                <button class="small-btn" type="button" data-action="move-timetable-down">下移</button>
+                <button class="small-btn danger" type="button" data-action="delete-timetable-row">删除</button>
+              </div>
+            </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      container.appendChild(card);
+    }
+
+    function applyTimetableLayout() {
+      const timetablePage = document.getElementById('page-timetable');
+      if (!timetablePage) return;
+      const layout = timetablePage.querySelector('.timetable-layout');
+      const tablePanel = timetablePage.querySelector('#timetableContainer .group-card');
+      if (!layout || !tablePanel) return;
+      const availableWidth = layout.clientWidth;
+      const navWidth = timetablePage.querySelector('.timetable-nav')?.offsetWidth || 180;
+      const finalWidth = Math.min(Math.max(320, availableWidth - navWidth - 28), 900);
+      tablePanel.style.width = `${finalWidth}px`;
+      tablePanel.style.maxWidth = `${finalWidth}px`;
+    }
+
+    function renderDividerTable() {
+      const container = document.getElementById('dividerContainer');
+      container.innerHTML = '';
+      const groups = config && config.divider ? config.divider : {};
+      const groupNames = Object.keys(groups);
+
+      if (!groupNames.length) {
+        container.innerHTML = '<div class="empty">暂无分割线配置</div>';
+        return;
+      }
+
+      groupNames.forEach((groupName) => {
+        const card = document.createElement('div');
+        card.className = 'group-card';
+        card.innerHTML = `
+          <h3>${escapeHtml(groupName)}</h3>
+          <div class="field">
+            <label>分割线位置（逗号分隔）</label>
+            <input data-role="divider-input" data-group-name="${escapeHtml(groupName)}" value="${escapeHtml((groups[groupName] || []).join(', '))}" />
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function renderDayNav() {
+      const container = document.getElementById('dayNav');
+      container.innerHTML = '<button class="small-btn primary" type="button" data-action="add-day-card">新建课表</button>';
+      const days = config && Array.isArray(config.daily_class) ? config.daily_class : [];
+      if (!days.length) {
+        container.innerHTML = '<div class="empty">暂无课表</div>';
+        return;
+      }
+
+      days.forEach((day, dayIndex) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'day-nav-item';
+        button.dataset.dayIndex = String(dayIndex);
+        button.textContent = `${day.Chinese || `第${dayIndex + 1}天`} (${day.English || 'DAY'})`;
+        if (dayIndex === 0) button.classList.add('active');
+        container.appendChild(button);
+      });
+    }
+
+    function renderDailyScheduleTable() {
+      const container = document.getElementById('dailyScheduleTableBody');
+      if (!container) return;
+      container.innerHTML = '';
+      const days = Array.isArray(config?.daily_class) ? config.daily_class : [];
+      const configuredSchedule = Array.isArray(config?.daily_schedule) ? config.daily_schedule : [];
+      const weekDays = [
+        ['星期一', 1],
+        ['星期二', 2],
+        ['星期三', 3],
+        ['星期四', 4],
+        ['星期五', 5],
+        ['星期六', 6],
+        ['星期日', 0],
+      ];
+
+      weekDays.forEach(([name, dayOfWeek]) => {
+        const configuredIndex = configuredSchedule[dayOfWeek] === undefined
+          ? dayOfWeek
+          : Number(configuredSchedule[dayOfWeek]);
+        const selectedIndex = Number.isInteger(configuredIndex) && days[configuredIndex]
+          ? configuredIndex
+          : (days.length ? 0 : -1);
+        const options = days.map((day, index) => `
+          <option value="${index}" ${index === selectedIndex ? 'selected' : ''}>
+            ${escapeHtml(day.Chinese || `第${index + 1}个课表`)}
+          </option>
+        `).join('');
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${name}</td>
+          <td>
+            <select data-role="daily-schedule" data-day-of-week="${dayOfWeek}" ${days.length ? '' : 'disabled'}>
+              ${days.length ? options : '<option>暂无课表</option>'}
+            </select>
+          </td>
+        `;
+        container.appendChild(row);
+      });
+    }
+
+    function renderDailyClassTable() {
+      const container = document.getElementById('dailyClassContainer');
+      container.innerHTML = '';
+      const days = config && Array.isArray(config.daily_class) ? config.daily_class : [];
+
+      if (!days.length) {
+        container.innerHTML = '<div class="empty">暂无课表配置</div>';
+        return;
+      }
+
+      const activeDayIndex = Number(document.querySelector('.day-nav-item.active')?.dataset.dayIndex ?? 0);
+      const day = days[activeDayIndex] || days[0];
+      if (!day) return;
+
+      const dayIndex = days.indexOf(day);
+      const classList = Array.isArray(day.classList) ? day.classList : [];
+      const timetableOptions = config && config.timetable ? Object.keys(config.timetable) : ['workday', 'weekend'];
+      const safeTimetable = day.timetable && config?.timetable?.[day.timetable]
+        ? day.timetable
+        : (dayIndex === 6 && config?.timetable?.sat ? 'sat' : (config?.timetable?.workday ? 'workday' : (timetableOptions[0] || 'workday')));
+      const slotCount = Math.max(classList.length, 1);
+
+      const editorCard = document.createElement('div');
+      editorCard.className = 'day-editor-card group-card';
+      editorCard.setAttribute('data-day-index', String(dayIndex));
+
+      const tablePanel = document.createElement('div');
+      tablePanel.className = 'day-table-panel';
+      tablePanel.innerHTML = `
+        <h3>${day.Chinese || `第${dayIndex + 1}天`} (${day.English || 'DAY'})</h3>
+        <table class="vertical-table">
+          <thead>
+            <tr>
+              <th>节次</th>
+              <th>课程内容</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <div class="inline-actions">
+          <button class="small-btn" type="button" data-action="add-day-slot">新增一节</button>
+        </div>
+      `;
+
+      const tbody = tablePanel.querySelector('tbody');
+      for (let i = 0; i < slotCount; i++) {
+        const value = classList[i];
+        const weeklyValues = Array.isArray(value) ? value : [value];
+        const rotationWeeks = Math.min(Math.max(Array.isArray(value) ? value.length : 1, 1), 4);
+        const weeklyInputs = Array.from({ length: rotationWeeks }, (_, weekIndex) => `
+          <div class="weekly-input">
+            ${rotationWeeks > 1 ? `<label for="day-${dayIndex}-slot-${i}-week-${weekIndex}">第 ${weekIndex + 1} 周</label>` : ''}
+            <select id="day-${dayIndex}-slot-${i}-week-${weekIndex}" data-day-index="${dayIndex}" data-slot-index="${i}" data-week-index="${weekIndex}" data-role="class-subject">
+              ${renderSubjectOptions(weeklyValues[weekIndex] ?? '')}
+            </select>
+          </div>
+        `).join('');
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>第 ${i + 1} 节</td>
+          <td>
+            <div class="slot-rotation-control">
+              <label for="rotation-weeks-${dayIndex}-${i}">轮换周数</label>
+              <select id="rotation-weeks-${dayIndex}-${i}" data-role="slot-rotation-weeks" data-day-index="${dayIndex}" data-slot-index="${i}">
+                <option value="1" ${rotationWeeks === 1 ? 'selected' : ''}>不轮换</option>
+                <option value="2" ${rotationWeeks === 2 ? 'selected' : ''}>2 周</option>
+                <option value="3" ${rotationWeeks === 3 ? 'selected' : ''}>3 周</option>
+                <option value="4" ${rotationWeeks === 4 ? 'selected' : ''}>4 周</option>
+              </select>
+            </div>
+            <div class="weekly-inputs" style="--rotation-weeks: ${rotationWeeks};">${weeklyInputs}</div>
+          </td>
+        `;
+        tbody.appendChild(row);
+      }
+
+      const propertyPanel = document.createElement('div');
+      propertyPanel.className = 'property-panel';
+      propertyPanel.innerHTML = `
+        <h3>其它设置</h3>
+        <div class="field">
+          <label>中文</label>
+          <input data-role="day-name" data-day-index="${dayIndex}" value="${escapeHtml(day.Chinese || '')}" />
+        </div>
+        <div class="field">
+          <label>英文</label>
+          <input data-role="day-en" data-day-index="${dayIndex}" value="${escapeHtml(day.English || '')}" />
+        </div>
+        <div class="field">
+          <label>时间表类型</label>
+          <select data-role="day-timetable" data-day-index="${dayIndex}">
+            ${timetableOptions.map((option) => `<option value="${option}" ${safeTimetable === option ? 'selected' : ''}>${option}</option>`).join('')}
+          </select>
+        </div>
+        <div class="inline-actions">
+          <button class="small-btn danger" type="button" data-action="delete-day-card">删除该日课表</button>
+        </div>
+      `;
+
+      editorCard.appendChild(tablePanel);
+      editorCard.appendChild(propertyPanel);
+      container.appendChild(editorCard);
+    }
+
+    function applyDailyTableLayout() {
+      const dailyPage = document.getElementById('page-daily');
+      if (!dailyPage) return;
+      const layout = dailyPage.querySelector('.daily-layout');
+      const tablePanel = dailyPage.querySelector('.day-table-panel');
+      const propertyPanel = dailyPage.querySelector('.property-panel');
+      if (!layout || !tablePanel || !propertyPanel) return;
+
+      const availableWidth = layout.clientWidth;
+      const leftNavWidth = dailyPage.querySelector('.day-nav')?.offsetWidth || 180;
+      const propertyWidth = propertyPanel.offsetWidth || 280;
+      const gap = 22;
+      const targetWidth = Math.max(320, availableWidth - leftNavWidth - propertyWidth - gap * 3 - 10);
+      const finalTableWidth = Math.min(Math.max(320, targetWidth), 760);
+
+      tablePanel.style.width = `${finalTableWidth}px`;
+      tablePanel.style.maxWidth = `${finalTableWidth}px`;
+      propertyPanel.style.width = `${Math.min(propertyWidth, Math.max(220, availableWidth - finalTableWidth - leftNavWidth - 28))}px`;
+      propertyPanel.style.minWidth = `${Math.min(propertyWidth, Math.max(220, availableWidth - finalTableWidth - leftNavWidth - 28))}px`;
+    }
+
+    function renderAll() {
+      renderSubjectTable();
+      renderTimetableTable();
+      renderTimetableNav();
+      renderDayNav();
+      renderDailyClassTable();
+      renderDailyScheduleTable();
+      renderDividerTable();
+      requestAnimationFrame(() => {
+        applyTimetableLayout();
+        applyDailyTableLayout();
+      });
+    }
+
+    function collectSubjectConfig() {
+      const rows = document.querySelectorAll('.subject-row');
+      const subjectName = {};
+      rows.forEach((row) => {
+        const key = row.querySelector('[data-field="subject-key"]').value.trim();
+        const value = row.querySelector('[data-field="subject-value"]').value.trim();
+        if (!key) return;
+        subjectName[key] = value || key;
+      });
+      return subjectName;
+    }
+
+    function collectTimetableConfig() {
+      const groups = JSON.parse(JSON.stringify(config?.timetable || {}));
+      const card = document.querySelector('#timetableContainer .group-card');
+      if (!card) return groups;
+      const groupName = card.dataset.timetableName || activeTimetableName;
+      const rows = card.querySelectorAll('tbody tr');
+      const group = {};
+      rows.forEach((row) => {
+        const range = row.querySelector('[data-role="timetable-range"]')?.value.trim();
+        let value = row.querySelector('[data-role="timetable-value"]')?.value.trim();
+        if (!range) return;
+        if (value === '') value = '课间';
+        if (/^-?\d+$/.test(value)) value = Number(value);
+        group[range] = value;
+      });
+      if (groupName) groups[groupName] = group;
+      return groups;
+    }
+
+    function collectDividerConfig() {
+      const result = {};
+      const inputs = document.querySelectorAll('[data-role="divider-input"]');
+      inputs.forEach((input) => {
+        const groupName = input.getAttribute('data-group-name');
+        const raw = input.value;
+        const arr = raw.split(',').map((part) => part.trim()).filter(Boolean).map((num) => Number(num));
+        if (groupName) result[groupName] = arr.filter((n) => !Number.isNaN(n));
+      });
+      return result;
+    }
+
+    function normalizeDayClassList(classList) {
+      if (!Array.isArray(classList)) return [''];
+      const normalized = classList.map((item) => (item === undefined ? '' : item));
+      while (normalized.length > 1 && normalized[normalized.length - 1] === '') {
+        normalized.pop();
+      }
+      return normalized.length ? normalized : [''];
+    }
+
+    function parseSlotValue(rawValue) {
+      const value = String(rawValue ?? '').trim();
+      if (!value) return [''];
+
+      if (value.startsWith('[') && value.endsWith(']')) {
+        try {
+          const parsed = Function(`"use strict"; return (${value});`)();
+          if (Array.isArray(parsed)) {
+            return parsed.map((item) => (typeof item === 'string' ? item.trim() : item));
+          }
+        } catch (error) {
+          // 回退到普通分隔逻辑
+        }
+      }
+
+      return value
+        .split('|')
+        .flatMap((part) => part.split(','))
+        .map((part) => part.trim())
+        .filter(Boolean);
+    }
+
+    function readClassListFromCard(card) {
+      const rows = [...card.querySelectorAll('[data-role="class-subject"][data-slot-index]')];
+      const slotIndexes = [...new Set(rows.map((input) => Number(input.dataset.slotIndex)))].sort((a, b) => a - b);
+      return slotIndexes.map((slotIndex) => {
+        const inputs = rows
+          .filter((input) => Number(input.dataset.slotIndex) === slotIndex)
+          .sort((a, b) => Number(a.dataset.weekIndex) - Number(b.dataset.weekIndex));
+        const values = inputs.map((input) => input.value.trim());
+        if (values.length <= 1) return values[0] || '';
+        return values;
+      });
+    }
+
+    function collectDailyClassConfig() {
+      const days = Array.isArray(config?.daily_class)
+        ? config.daily_class.map((day) => ({
+            ...day,
+            classList: Array.isArray(day?.classList) ? [...day.classList] : [''],
+          }))
+        : [];
+
+      const activeDayIndex = Number(document.querySelector('.day-nav-item.active')?.dataset.dayIndex ?? 0);
+      const card = document.querySelector('#dailyClassContainer .day-editor-card, #dailyClassContainer .group-card');
+      if (!card) return days.filter(Boolean);
+
+      const dayIndex = Number(card.getAttribute('data-day-index') ?? activeDayIndex);
+      const chinese = card.querySelector('[data-role="day-name"]')?.value?.trim() || '';
+      const english = card.querySelector('[data-role="day-en"]')?.value?.trim() || '';
+      const timetable = (function() {
+        const selected = card.querySelector('[data-role="day-timetable"]')?.value;
+        return selected || (dayIndex === 6 && config?.timetable?.sat ? 'sat' : 'workday');
+      })();
+
+      const classList = readClassListFromCard(card);
+
+      const normalizedList = normalizeDayClassList(classList);
+      const nextDay = {
+        Chinese: chinese,
+        English: english,
+        classList: normalizedList,
+        timetable,
+      };
+
+      if (!days[dayIndex]) {
+        days[dayIndex] = nextDay;
+      } else {
+        days[dayIndex] = {
+          ...days[dayIndex],
+          ...nextDay,
+        };
+      }
+
+      return days.filter(Boolean);
+    }
+
+    function collectDailyScheduleConfig() {
+      const result = Array.isArray(config?.daily_schedule)
+        ? [...config.daily_schedule]
+        : [0, 1, 2, 3, 4, 5, 6];
+      document.querySelectorAll('[data-role="daily-schedule"]').forEach((select) => {
+        const dayOfWeek = Number(select.dataset.dayOfWeek);
+        const scheduleIndex = Number(select.value);
+        if (Number.isInteger(dayOfWeek) && Number.isInteger(scheduleIndex)) {
+          result[dayOfWeek] = scheduleIndex;
+        }
+      });
+      return result;
+    }
+
+    function addDayCard() {
+      if (!config) return;
+      const days = Array.isArray(config.daily_class) ? config.daily_class : (config.daily_class = []);
+      const timetableNames = config.timetable ? Object.keys(config.timetable) : [];
+      const timetable = timetableNames[0] || 'workday';
+      const slotCount = getTimetableSlotCount(timetable);
+      days.push({
+        Chinese: `新课表${days.length + 1}`,
+        English: `NEW${days.length + 1}`,
+        classList: Array.from({ length: Math.max(slotCount, 1) }, () => ''),
+        timetable,
+      });
+      renderDayNav();
+      document.querySelectorAll('.day-nav-item').forEach((button) => button.classList.remove('active'));
+      document.querySelector(`.day-nav-item[data-day-index="${days.length - 1}"]`)?.classList.add('active');
+      renderDailyClassTable();
+      renderDailyScheduleTable();
+      requestAnimationFrame(applyDailyTableLayout);
+    }
+
+    function addSlotToDay(dayIndex) {
+      const day = config?.daily_class?.[dayIndex];
+      if (!day || !Array.isArray(day.classList)) return;
+      day.classList.push('');
+      renderDailyClassTable();
+    }
+
+    function saveConfig({ silent = false } = {}) {
+      if (!config) return;
+
+      try {
+        const nextConfig = JSON.parse(JSON.stringify(config));
+        nextConfig.subject_name = collectSubjectConfig();
+        nextConfig.timetable = collectTimetableConfig();
+        nextConfig.daily_class = collectDailyClassConfig();
+        nextConfig.daily_schedule = collectDailyScheduleConfig();
+        nextConfig.divider = collectDividerConfig();
+
+        if (!Array.isArray(nextConfig.daily_class) || !nextConfig.daily_class.length) {
+          throw new Error('daily_class is empty');
+        }
+
+        return ipcRenderer.invoke('save-config-file', nextConfig)
+          .then(() => {
+            config = nextConfig;
+            if (!silent) alert('配置已保存到 scheduleConfig.js');
+          })
+          .catch((error) => {
+            console.error(error);
+            if (!silent) alert('保存失败，请检查配置格式');
+          });
+      } catch (error) {
+        console.error(error);
+        if (!silent) alert('保存失败：配置数据无效，请检查是否删除了所有课时。');
+      }
+    }
+
+    document.getElementById('addSubjectBtn').addEventListener('click', () => {
+      const body = document.getElementById('subjectTableBody');
+      const row = document.createElement('tr');
+      row.className = 'subject-row';
+      row.innerHTML = `
+        <td><input data-field="subject-key" placeholder="例如：自@语" /></td>
+        <td><input data-field="subject-value" placeholder="例如：语文周测" /></td>
+        <td><button class="small-btn danger" type="button" data-action="delete-subject">删除</button></td>
+      `;
+      body.appendChild(row);
+    });
+
+    document.getElementById('saveBtn').addEventListener('click', saveConfig);
+    document.getElementById('importBtn').addEventListener('click', () => {
+      ipcRenderer.invoke('import-config-file')
+        .then((importedConfig) => {
+          if (!importedConfig) return;
+          config = importedConfig;
+          activeTimetableName = null;
+          renderAll();
+        })
+        .catch((error) => {
+          console.error(error);
+          alert(`导入失败：${error.message || '配置文件格式无效'}`);
+        });
+    });
+    document.getElementById('reloadBtn').addEventListener('click', () => {
+      getCurrentConfig().then((data) => {
+        config = data;
+        renderAll();
+      });
+    });
+    document.getElementById('addTimetableBtn').addEventListener('click', addTimetableGroup);
+
+    async function renameTimetableGroup(oldName) {
+      if (!config?.timetable || !Object.prototype.hasOwnProperty.call(config.timetable, oldName)) return;
+      const newName = await ipcRenderer.invoke('open-rename-timetable-window', oldName);
+      if (newName === null || newName === undefined) return;
+
+      const trimmedName = String(newName).trim();
+      if (!trimmedName) {
+        alert('时间表名称不能为空');
+        return;
+      }
+      if (trimmedName !== oldName && Object.prototype.hasOwnProperty.call(config.timetable, trimmedName)) {
+        alert('时间表名称已存在，请换个名称');
+        return;
+      }
+      if (trimmedName === oldName) return;
+
+      const renamedTimetables = {};
+      Object.entries(config.timetable).forEach(([name, timetable]) => {
+        renamedTimetables[name === oldName ? trimmedName : name] = timetable;
+      });
+      config.timetable = renamedTimetables;
+
+      if (config.divider && Object.prototype.hasOwnProperty.call(config.divider, oldName)) {
+        config.divider[trimmedName] = config.divider[oldName];
+        delete config.divider[oldName];
+      }
+      if (Array.isArray(config.daily_class)) {
+        config.daily_class.forEach((day) => {
+          if (day && day.timetable === oldName) day.timetable = trimmedName;
+        });
+      }
+
+      activeTimetableName = trimmedName;
+      renderTimetableNav();
+      renderTimetableTable();
+      renderDailyClassTable();
+      renderDividerTable();
+      requestAnimationFrame(() => {
+        applyTimetableLayout();
+        applyDailyTableLayout();
+      });
+    }
+
+    document.getElementById('mainNav').addEventListener('click', (event) => {
+      const target = event.target.closest('.nav-item');
+      if (!target) return;
+      document.querySelectorAll('.nav-item').forEach((button) => button.classList.toggle('active', button === target));
+      document.querySelectorAll('.page').forEach((page) => page.classList.toggle('active', page.id === `page-${target.dataset.page}`));
+      if (target.dataset.page === 'daily') {
+        requestAnimationFrame(applyDailyTableLayout);
+      }
+      if (target.dataset.page === 'timetable') {
+        requestAnimationFrame(applyTimetableLayout);
+      }
+    });
+
+    document.addEventListener('click', (event) => {
+      const addDayTarget = event.target.closest('[data-action="add-day-card"]');
+      if (addDayTarget) {
+        addDayCard();
+        return;
+      }
+      const timetableTarget = event.target.closest('.timetable-nav-item');
+      if (timetableTarget) {
+        const currentCard = document.querySelector('#timetableContainer .group-card');
+        const nextName = timetableTarget.dataset.timetableName;
+        if (currentCard && activeTimetableName) {
+          const currentRows = currentCard.querySelectorAll('tbody tr');
+          const currentGroup = {};
+          currentRows.forEach((row) => {
+            const range = row.querySelector('[data-role="timetable-range"]')?.value.trim();
+            let value = row.querySelector('[data-role="timetable-value"]')?.value.trim();
+            if (!range) return;
+            if (value === '') value = '课间';
+            if (/^-?\d+$/.test(value)) value = Number(value);
+            currentGroup[range] = value;
+          });
+          config.timetable[activeTimetableName] = currentGroup;
+        }
+        activeTimetableName = nextName;
+        renderTimetableNav();
+        renderTimetableTable();
+        requestAnimationFrame(applyTimetableLayout);
+        return;
+      }
+      const target = event.target.closest('.day-nav-item');
+      if (!target) return;
+      document.querySelectorAll('.day-nav-item').forEach((button) => button.classList.toggle('active', button === target));
+      renderDailyClassTable();
+      requestAnimationFrame(applyDailyTableLayout);
+    });
+
+    window.addEventListener('resize', () => {
+      requestAnimationFrame(applyTimetableLayout);
+      requestAnimationFrame(applyDailyTableLayout);
+    });
+
+    document.addEventListener('change', (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+
+      if (target.matches('[data-role="day-timetable"]')) {
+        const dayIndex = Number(target.dataset.dayIndex);
+        const timetableName = target.value;
+        const day = config?.daily_class?.[dayIndex];
+        if (!day || !config || !config.timetable || !config.timetable[timetableName]) return;
+        const expectedCount = getTimetableSlotCount(timetableName);
+        const nextClassList = Array.isArray(day.classList) ? [...day.classList] : [];
+        while (nextClassList.length < expectedCount) nextClassList.push('');
+        if (nextClassList.length > expectedCount) nextClassList.length = expectedCount;
+        day.classList = nextClassList;
+        day.timetable = timetableName;
+        renderDailyClassTable();
+      }
+
+      if (target.matches('[data-role="slot-rotation-weeks"]')) {
+        const dayIndex = Number(target.dataset.dayIndex);
+        const slotIndex = Number(target.dataset.slotIndex);
+        const card = target.closest('.day-editor-card');
+        const day = config?.daily_class?.[dayIndex];
+        const rotationWeeks = Number(target.value);
+        if (!card || !day || !Number.isInteger(slotIndex) || ![1, 2, 3, 4].includes(rotationWeeks)) return;
+        const nextClassList = readClassListFromCard(card);
+        const currentValue = nextClassList[slotIndex];
+        const currentValues = Array.isArray(currentValue) ? currentValue : [currentValue || ''];
+        const resizedValues = Array.from({ length: rotationWeeks }, (_, index) => currentValues[index] || '');
+        nextClassList[slotIndex] = rotationWeeks === 1 ? resizedValues[0] : resizedValues;
+        day.classList = nextClassList;
+        renderDailyClassTable();
+      }
+
+    });
+
+    function moveTimetableRow(row, direction) {
+      const tbody = row.closest('tbody');
+      if (!tbody) return;
+      const rows = [...tbody.querySelectorAll('tr')];
+      const index = rows.indexOf(row);
+      if (index < 0) return;
+      const targetIndex = direction === 'up' ? index - 1 : index + 1;
+      if (targetIndex < 0 || targetIndex >= rows.length) return;
+      tbody.insertBefore(row, direction === 'up' ? rows[targetIndex] : rows[targetIndex].nextSibling);
+    }
+
+    document.addEventListener('click', (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      if (target.dataset.action === 'delete-subject') {
+        target.closest('tr')?.remove();
+      }
+      if (target.dataset.action === 'delete-timetable-row') {
+        target.closest('tr')?.remove();
+      }
+      if (target.dataset.action === 'rename-timetable') {
+        renameTimetableGroup(target.dataset.groupName);
+      }
+      if (target.dataset.action === 'move-timetable-up') {
+        moveTimetableRow(target.closest('tr'), 'up');
+      }
+      if (target.dataset.action === 'move-timetable-down') {
+        moveTimetableRow(target.closest('tr'), 'down');
+      }
+      if (target.dataset.action === 'delete-day-card') {
+        const groupCard = target.closest('.group-card');
+        const dayIndex = Number(groupCard?.getAttribute('data-day-index'));
+        if (Number.isInteger(dayIndex) && config?.daily_class) {
+          config.daily_class.splice(dayIndex, 1);
+          if (Array.isArray(config.daily_schedule)) {
+            config.daily_schedule = config.daily_schedule.map((scheduleIndex) => {
+              const index = Number(scheduleIndex);
+              if (index === dayIndex) return 0;
+              return index > dayIndex ? index - 1 : index;
+            });
+          }
+          renderDayNav();
+          renderDailyClassTable();
+          renderDailyScheduleTable();
+        }
+        groupCard?.remove();
+      }
+      if (target.dataset.action === 'add-day-slot') {
+        const groupCard = target.closest('.group-card');
+        const dayIndex = Number(groupCard?.getAttribute('data-day-index'));
+        addSlotToDay(dayIndex);
+      }
+      if (target.dataset.action === 'add-timetable-row') {
+        const groupName = target.dataset.groupName;
+        const groupCard = target.closest('.group-card');
+        const tbody = groupCard.querySelector('tbody');
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><input data-role="timetable-range" placeholder="08:00-08:39" /></td>
+          <td><input data-role="timetable-value" placeholder="课间 / 0 / 自习" /></td>
+          <td>
+            <div class="inline-actions">
+              <button class="small-btn" type="button" data-action="move-timetable-up">上移</button>
+              <button class="small-btn" type="button" data-action="move-timetable-down">下移</button>
+              <button class="small-btn danger" type="button" data-action="delete-timetable-row">删除</button>
+            </div>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      }
+    });
+
+    getCurrentConfig().then((data) => {
+      config = data;
+      renderAll();
+    }).catch((error) => {
+      console.error(error);
+      alert('读取配置文件失败，无法打开编辑器');
+    });
+  </script>
+</body>
+</html>

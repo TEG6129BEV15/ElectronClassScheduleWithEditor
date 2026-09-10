@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>请确认</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #111c2f;
+      --panel-strong: #162540;
+      --border: #283a5d;
+      --text: #eaf3ff;
+      --muted: #a7b8d6;
+      --accent: #72d6ff;
+      --accent-2: #8ef2b1;
+      --danger: #ff7d7d;
+      --shadow: rgba(0, 0, 0, 0.25);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      font-family: "Microsoft YaHei", "Segoe UI", sans-serif;
+      background: linear-gradient(180deg, #0b1220 0%, #0f172a 100%);
+      color: var(--text);
+    }
+
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+    }
+
+    .dialog {
+      width: min(100%, 440px);
+      background: rgba(17, 28, 47, 0.97);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: 0 12px 28px var(--shadow);
+      padding: 18px 18px 16px;
+    }
+
+    .title {
+      margin: 0 0 8px;
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      color: var(--text);
+    }
+
+    .subtitle {
+      margin: 0 0 16px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .button-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    button {
+      border: 1px solid var(--border);
+      background: var(--panel-strong);
+      color: var(--text);
+      padding: 10px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: transform 0.12s ease, border-color 0.12s ease, background 0.12s ease;
+      box-shadow: 0 3px 10px var(--shadow);
+      font-size: 14px;
+    }
+
+    button:hover { transform: translateY(-1px); }
+    button.primary {
+      background: linear-gradient(180deg, #1f3d7a, #17325e);
+      border-color: rgba(114, 214, 255, 0.35);
+    }
+    button.secondary {
+      background: rgba(18, 32, 53, 0.9);
+    }
+  </style>
+</head>
+<body>
+  <div class="dialog">
+    <h1 id="dialogTitle" class="title">请确认</h1>
+    <p id="dialogMessage" class="subtitle">你确定要退出程序吗?</p>
+
+    <div class="button-grid">
+      <button id="cancelBtn" class="secondary" type="button">取消</button>
+      <button id="confirmBtn" class="primary" type="button">确定</button>
+    </div>
+  </div>
+
+  <script>
+    const { ipcRenderer } = require('electron');
+    const params = new URLSearchParams(window.location.search);
+    const payload = JSON.parse(decodeURIComponent(params.get('data') || '{}'));
+
+    document.getElementById('dialogTitle').textContent = payload.title || '请确认';
+    document.getElementById('dialogMessage').textContent = payload.message || '你确定要退出程序吗?';
+
+    const cancelBtn = document.getElementById('cancelBtn');
+    const confirmBtn = document.getElementById('confirmBtn');
+
+    cancelBtn.textContent = (payload.buttons && payload.buttons[0]) || '取消';
+    confirmBtn.textContent = (payload.buttons && payload.buttons[1]) || '确定';
+
+    cancelBtn.addEventListener('click', () => {
+      ipcRenderer.send('exit-confirm-result', 0);
+      window.close();
+    });
+
+    confirmBtn.addEventListener('click', () => {
+      ipcRenderer.send('exit-confirm-result', 1);
+      window.close();
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        cancelBtn.click();
+      }
+      if (event.key === 'Enter') {
+        confirmBtn.click();
+      }
+    });
+  </script>
+</body>
+</html>
